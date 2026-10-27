@@ -87,12 +87,3 @@ Masukkan password sudo. Biarkan terminal terbuka. `Ctrl+C` untuk putuskan, route
 | DNS lama tersangkut | `sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder` |
 | Passcode ditolak | Tunggu 60 saat, cuba semula |
 
-## Keselamatan
-
-- Jangan hardcode PIN/password. Guna Keychain:
-  ```bash
-  security add-generic-password -a "$USER" -s bapaktunnel -w
-  VPN_PASSWORD="$(security find-generic-password -a "$USER" -s bapaktunnel -w)"
-  ```
-- Jangan letak script dalam repo atau folder sync. `chmod 700` fail script.
-- Server bank push full tunnel. Pastikan IT/security benarkan split tunnel.
