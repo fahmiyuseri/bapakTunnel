@@ -1,0 +1,25 @@
+
+set timeout -1
+
+spawn $env(OPENCONNECT) \
+    --protocol=anyconnect \
+    --user=$env(VPN_USERNAME) \
+    --script=$env(VPN_SCRIPT) \
+    $env(VPN_DOMAIN)
+
+expect {
+    -re {(?i)PASSCODE:} {
+        send -- "$env(VPN_PASSCODE)\r"
+        exp_continue
+    }
+
+    -re {(?i)Password:} {
+        send -- "$env(VPN_PASSWORD)\r"
+        exp_continue
+    }
+
+    eof {
+        catch wait result
+        exit [lindex $result 3]
+    }
+}

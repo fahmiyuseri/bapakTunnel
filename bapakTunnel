@@ -1,0 +1,76 @@
+#!/bin/sh
+
+set -Eeuo pipefail
+umask 077
+
+VPN_DOMAIN="vpn.rhbgroup.com"
+USERNAME=""
+
+# Masukkan credentials baharu kau
+PIN=""
+VPN_PASSWORD=""
+
+STOKEN="/opt/homebrew/bin/stoken"
+OPENCONNECT="/opt/homebrew/bin/openconnect"
+VPN_SLICE="/opt/homebrew/bin/vpn-slice"
+EXPECT="$(command -v expect || true)"
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+VPN_ROUTES="webmail.rhbgroup.com jira.intranet.rhbgroup.com bitbucket.intranet.rhbgroup.com smebankingsit.rhbgroup.com smebankinguat.rhbgroup.com smefinancingsit.rhbgroup.com  smefinancinguat.rhbgroup.com rhbgroup.sharepoint.com confluence.intranet.rhbgroup.com smefinancingintrauat.rhbgroup.com smefinancingintrasit.rhbgroup.com myoneid.iam.intranet.rhbgroup.com smefinancinguat.rhbgroup.com smefinancingsit.rhbgroup.com"
+VPN_SCRIPT="$VPN_SLICE -v $VPN_ROUTES"
+EXPECT_SCRIPT="$SCRIPT_DIR/bapakTunnel.expect"
+
+# Check dependencies
+for cmd in "$STOKEN" "$OPENCONNECT" "$VPN_SLICE"; do
+    if [[ ! -x "$cmd" ]]; then
+        echo "[ERROR] Executable not found: $cmd" >&2
+        exit 1
+    fi
+done
+
+if [[ -z "$EXPECT" || ! -x "$EXPECT" ]]; then
+    echo "[ERROR] Expect not found. Install it with: brew install expect" >&2
+    exit 1
+fi
+
+if [[ ! -f "$EXPECT_SCRIPT" ]]; then
+    echo "[ERROR] Missing Expect script." >&2
+    exit 1
+fi
+
+# Generate SecurID tokencode
+echo "[BAPAKTUNNEL] Generating token..."
+
+TOKEN="$(printf '%s\n' "$PIN" | "$STOKEN" tokencode --stdin | tr -d '\r\n')"
+
+if [[ -z "$TOKEN" ]]; then
+    echo "[ERROR] Failed to generate SecurID token." >&2
+    exit 1
+fi
+
+VPN_PASSCODE="${PIN}${TOKEN}"
+
+# Export only the values required by Expect
+export VPN_PASSCODE VPN_PASSWORD VPN_SCRIPT
+export VPN_USERNAME="$USERNAME"
+export VPN_DOMAIN OPENCONNECT
+
+unset PIN TOKEN
+
+echo "[BAPAKTUNNEL] Connecting to $VPN_DOMAIN..."
+echo "[BAPAKTUNNEL] macOS will ask for your sudo password."
+
+# Force sudo to ask for the password on each run.
+# Expect itself will run as root, avoiding nested sudo.
+sudo -k
+
+if sudo -E "$EXPECT" "$EXPECT_SCRIPT"; then
+    RESULT=0
+else
+    RESULT=$?
+fi
+
+unset VPN_PASSCODE VPN_PASSWORD VPN_USERNAME VPN_SCRIPT
+unset VPN_DOMAIN OPENCONNECT
+
+exit "$RESULT"
